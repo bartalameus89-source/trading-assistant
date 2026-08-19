@@ -25,11 +25,12 @@ CFG = json.load(open(os.path.join(БАЗА, "config.json"), encoding="utf-8"))
 
 
 def срез(свечи: data.Свечи, до: int) -> data.Свечи:
+    от = max(0, до + 1 - 400)     # окно: глубже MA200 анализ не смотрит
     return replace(
         свечи,
-        времена=свечи.времена[:до + 1], opens=свечи.opens[:до + 1],
-        highs=свечи.highs[:до + 1], lows=свечи.lows[:до + 1],
-        closes=свечи.closes[:до + 1], volumes=свечи.volumes[:до + 1],
+        времена=свечи.времена[от:до + 1], opens=свечи.opens[от:до + 1],
+        highs=свечи.highs[от:до + 1], lows=свечи.lows[от:до + 1],
+        closes=свечи.closes[от:до + 1], volumes=свечи.volumes[от:до + 1],
     )
 
 
@@ -40,8 +41,8 @@ def главное() -> None:
 
     for актив in CFG["активы"]:
         try:
-            свечи = data.загрузить(актив, CFG["таймфрейм"], лимит=1000,
-                                   источники=CFG["источник_данных"])
+            свечи = data.загрузить_глубоко(актив, CFG["таймфрейм"], баров=6000,
+                                           источники=CFG["источник_данных"])
         except Exception as e:
             print(f"  {актив:10s} ошибка загрузки: {type(e).__name__}")
             continue

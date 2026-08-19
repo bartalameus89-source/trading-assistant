@@ -47,7 +47,14 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python paper.py
+        # Флаг --жив включается по воскресеньям: раз в неделю бот
+        # подтверждает, что работает, даже если сигналов не было.
+        run: |
+          if [ "$(date -u +%u)" = "7" ] && [ "$(date -u +%H)" = "08" ]; then
+            python paper.py --жив
+          else
+            python paper.py
+          fi
 
       - name: Долгосрочный обзор
         # Раз в сутки, в утренний запуск. Дневная свеча меняется раз в день,
