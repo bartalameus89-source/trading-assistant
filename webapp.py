@@ -27,7 +27,7 @@ import time
 import urllib.parse
 from http import HTTPStatus
 
-from engine import data, exchange, journal, longterm, render, risk, signals
+from engine import data, decisions, exchange, journal, longterm, render, risk, signals
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
 ПОРТ = 8765
@@ -369,7 +369,30 @@ td.вверх{color:var(--зел)}td.вниз{color:var(--крас)}
 border-bottom:2px solid transparent;color:var(--тихо);font-weight:600;border-radius:0}
 .вкладка.активная{color:var(--текст);border-bottom-color:var(--син)}
 .вкладка:hover{color:var(--текст)}
+.решение{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+margin:14px 0;padding:12px;background:#11141a;border-radius:8px;
+border:1px solid var(--рамка)}
+.решение button{width:auto;margin:0;padding:8px 18px;font-size:14px}
+.кнопка-взял{background:var(--зел);border-color:var(--зел)}
+.кнопка-пропустил{background:transparent;border-color:var(--рамка);color:var(--тихо)}
+.кнопка-пропустил:hover{color:var(--текст)}
+.ссылка-журнал{display:inline-block;padding:8px 14px;background:var(--блок);
+border:1px solid var(--рамка);border-radius:7px;text-decoration:none;font-size:14px}
+.ссылка-журнал:hover{border-color:var(--син)}
+span.вверх{color:var(--зел)}span.вниз{color:var(--крас)}
 </style>"""
+
+
+def _страница(имя: str) -> bytes:
+    """Читает шаблон и подставляет стили. Шаблоны читаются на каждый запрос —
+    так правку в вёрстке видно сразу, без перезапуска сервера."""
+    путь = os.path.join(БАЗА, "templates", имя)
+    with open(путь, encoding="utf-8") as f:
+        return f.read().replace("__СТИЛИ__", СТИЛИ).encode()
+
+
+def страница_журнала() -> bytes:
+    return _страница("journal.html")
 
 
 def страница_кабинета() -> bytes:
@@ -435,6 +458,26 @@ class Обработчик(http.server.BaseHTTPRequestHandler):
         if путь.path == "/":
             return self._ответ(страница_кабинета())
 
+        if путь.path == "/journal":
+            return self._ответ(страница_журнала())
+
+        if путь.path == "/api/decisions":
+            q = urllib.parse.parse_qs(путь.query)
+            от = float(q.get("from", ["0"])[0])
+            до = float(q.get("to", ["99999999999"])[0])
+            все = decisions.все()
+            # Фильтр по времени РЕШЕНИЯ, а не закрытия: пользователь думает
+            # категориями «что я решил на этой неделе».
+            в_окне = [р for р in все if от <= р.когда <= до]
+            тело = json.dumps({
+                "решения": [
+                    {**{к: v for к, v in р.__dict__.items()}} for р in в_окне
+                ],
+                "статистика": decisions.статистика(в_окне),
+                "всего_за_всё_время": len(все),
+            }, ensure_ascii=False, default=str).encode()
+            return self._ответ(тело, тип="application/json; charset=utf-8")
+
         if путь.path == "/api":
             q = urllib.parse.parse_qs(путь.query)
             try:
@@ -453,7 +496,26 @@ class Обработчик(http.server.BaseHTTPRequestHandler):
         self._ответ(b"not found", HTTPStatus.NOT_FOUND, "text/plain")
 
     def do_POST(self):
-        if urllib.parse.urlparse(self.path).path != "/login":
+        путь = urllib.parse.urlparse(self.path).path
+
+        if путь == "/api/decision":
+            if not self._авторизован():
+                return self._ответ(b'{"ok":false}', HTTPStatus.UNAUTHORIZED,
+                                   "application/json")
+            длина = int(self.headers.get("Content-Length", 0))
+            try:
+                данные = json.loads(self.rfile.read(длина).decode("utf-8-sig",
+                                                                 errors="replace"))
+                р = decisions.записать(decisions.из_запроса(данные))
+                ответ = {"ok": True, "состояние": р.состояние, "решение": р.решение}
+            except Exception as e:
+                # Текст ошибки нужен в ответе: без него отладка превращается
+                # в угадывание, а это локальный сервер только для владельца.
+                ответ = {"ok": False, "ошибка": f"{type(e).__name__}: {e}"}
+            return self._ответ(json.dumps(ответ, ensure_ascii=False).encode(),
+                               тип="application/json; charset=utf-8")
+
+        if путь != "/login":
             return self._ответ(b"not found", HTTPStatus.NOT_FOUND, "text/plain")
         длина = int(self.headers.get("Content-Length", 0))
         сырое = self.rfile.read(длина)

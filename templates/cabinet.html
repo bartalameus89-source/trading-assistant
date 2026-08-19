@@ -4,7 +4,8 @@
 
 <div class="шапка">
   <div><h1>Торговый ассистент</h1><p class="тихо" id="статус">Загрузка…</p></div>
-  <a href="/logout" class="тихо">Выйти</a>
+  <div><a href="/journal" class="ссылка-журнал">📊 Мои сделки</a>
+       &nbsp; <a href="/logout" class="тихо">Выйти</a></div>
 </div>
 
 <div class="карточка">
@@ -238,6 +239,19 @@ function перерисовать() {
         <thead><tr><th>Капитал</th><th>Купить</th><th>Объём</th>
           <th>Потеряете</th><th>Заработаете</th></tr></thead>
         <tbody>${строки}</tbody></table></div>
+      <div class="решение" data-ид="${м.актив}-${с.вход}">
+        <span class="тихо">Что вы решили?</span>
+        <button class="кнопка-взял" onclick="решить(this,'taken',${JSON.stringify(JSON.stringify({
+          id: м.актив + '-' + с.вход, asset: м.актив, side: с.направление,
+          entry: с.вход, stop: с.стоп, target: с.цель, order: с.тип_ордера,
+          confidence: с.уверенность, regime: м.режим, tag: с.тег,
+        }))})">Взял сделку</button>
+        <button class="кнопка-пропустил" onclick="решить(this,'skipped',${JSON.stringify(JSON.stringify({
+          id: м.актив + '-' + с.вход, asset: м.актив, side: с.направление,
+          entry: с.вход, stop: с.стоп, target: с.цель, order: с.тип_ордера,
+          confidence: с.уверенность, regime: м.режим, tag: с.тег,
+        }))})">Пропустил</button>
+      </div>
       <p class="мелко">«Заработаете» — при достижении цели, за вычетом комиссий.
         Возможная прибыль в ${с.rr.toFixed(1)} раза больше риска.
         Основания: ${с.подтверждения.join(' · ')}</p>
@@ -327,6 +341,32 @@ function перерисовать() {
       <td><span class="знак ${кл}">${текст}</span></td>
       <td class="мелко">${м.почему || '—'}</td></tr>`;
   }).join('');
+}
+
+async function решить(кнопка, выбор, данныеJson) {
+  const блок = кнопка.closest('.решение');
+  const данные = JSON.parse(данныеJson);
+  const риск = +$('риск').value;
+  const м = данные;
+  // Размер и суммы считаются от ТЕКУЩЕГО выбора капитала — журнал должен
+  // помнить, чем именно вы рисковали в момент решения.
+  const стопОтн = Math.abs(м.entry - м.stop) / м.entry;
+  const размер = (выбранный * риск / 100) / (м.entry * стопОтн);
+  Object.assign(данные, {
+    choice: выбор, capital: выбранный, riskPct: риск,
+    size: размер, riskMoney: выбранный * риск / 100,
+    breakeven: 0.75,
+  });
+  блок.innerHTML = '<span class="тихо">Сохраняю…</span>';
+  const о = await fetch('/api/decision', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(данные)});
+  const р = await о.json();
+  const подпись = выбор === 'taken' ? 'взял сделку' : 'пропустил';
+  блок.innerHTML = р.ok
+    ? `<span class="знак ${выбор === 'taken' ? 'вверх' : 'бок'}">Записано: ${подпись}</span>
+       <a href="/journal" class="тихо">посмотреть в журнале →</a>`
+    : '<span class="ошибка">Не сохранилось, попробуйте ещё раз</span>';
 }
 
 async function загрузить(обновить) {

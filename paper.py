@@ -20,7 +20,7 @@ import os
 import sys
 import time
 
-from engine import data, journal, render, signals
+from engine import data, decisions, journal, render, signals
 from run import отправить_в_телеграм
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
@@ -121,6 +121,16 @@ def главное() -> int:
                     f"<i>Бумажная сделка, деньги не участвовали.</i>")
     else:
         события = []
+
+    # --- 1б. Провести решения пользователя ---
+    # Ведём и взятые, и пропущенные: без пропущенных не с чем сравнивать,
+    # а весь смысл журнала решений — в этом сравнении.
+    незакрытые = [р for р in decisions.все() if р.состояние != decisions.ЗАВЕРШЕНА]
+    if незакрытые:
+        цены_р = свежие_экстремумы(sorted({р.актив for р in незакрытые}),
+                                   min(р.когда for р in незакрытые))
+        for строка in decisions.провести(цены_р):
+            print(f"  решение: {строка}")
 
     # --- 2. Искать новые сигналы ---
     новых = 0
