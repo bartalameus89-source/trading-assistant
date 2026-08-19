@@ -27,7 +27,7 @@ import time
 import urllib.parse
 from http import HTTPStatus
 
-from engine import data, exchange, journal, render, risk, signals
+from engine import data, exchange, journal, longterm, render, risk, signals
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
 ПОРТ = 8765
@@ -168,6 +168,40 @@ def ожидание(плечо: float = 1.0) -> dict:
             "вывод": вывод}
 
 
+_кеш_долгий: dict = {"время": 0.0, "данные": None}
+
+
+def долгосрочный_обзор() -> list[dict]:
+    """Отдельная система — дневной таймфрейм, покупка на месяцы.
+    Кешируется на час: дневная свеча меняется раз в сутки."""
+    if (_кеш_долгий["данные"] is not None
+            and time.time() - _кеш_долгий["время"] < 3600):
+        return _кеш_долгий["данные"]
+
+    cfg = конфиг()
+    вышло = []
+    for актив in cfg["активы"]:
+        try:
+            свечи = data.загрузить(актив, "1d", лимит=400,
+                                   источники=cfg["источник_данных"])
+            в = longterm.проанализировать_долгий(свечи, cfg)
+        except Exception:
+            continue
+        вышло.append({
+            "актив": актив, "цена": в.цена, "вывод": в.вывод,
+            "выполнено": в.выполнено, "всего_условий": len(в.условия),
+            "выше_ma200": в.выше_ma200, "adx": round(в.adx, 1),
+            "rsi": round(в.rsi, 1),
+            "просадка_от_максимума": round(в.просадка_от_максимума, 1),
+            "вход": в.вход, "стоп": в.стоп, "стоп_проц": в.стоп_проц,
+            "выход_по": в.выход_по, "горизонт": в.горизонт,
+            "словами": longterm.словами(в),
+            "условия": [{"имя": и, "ок": о, "факт": ф} for и, о, ф in в.условия],
+        })
+    _кеш_долгий.update({"время": time.time(), "данные": вышло})
+    return вышло
+
+
 def разобрать_всё(капитал: float, риск_пр: float, плечо: float) -> dict:
     """Считает состояние по всем монетам. Тяжёлая операция — кешируется."""
     cfg = конфиг()
@@ -242,6 +276,10 @@ def разобрать_всё(капитал: float, риск_пр: float, пл�
         "монеты": монеты,
         "ожидание": ожидание(плечо),
         "журнал": journal.статистика(),
+        "долгосрочные": долгосрочный_обзор(),
+        "долгая_статистика": {"побед_проц": 18, "средний_выигрыш_R": 3.95,
+                              "средний_проигрыш_R": -0.29, "сделок": 87,
+                              "риск_пр": конфиг()["долгосрочная"]["риск_на_позицию_пр"]},
     }
 
 
@@ -326,6 +364,11 @@ color:var(--текст);cursor:pointer;margin:0;font-weight:500}
 .подсветка{background:rgba(68,147,248,.10)}
 td.вверх{color:var(--зел)}td.вниз{color:var(--крас)}
 .цифра.вверх{color:var(--зел)}.цифра.вниз{color:var(--крас)}
+.вкладки{display:flex;gap:8px;margin:26px 0 4px;border-bottom:1px solid var(--рамка)}
+.вкладка{width:auto;margin:0;padding:10px 18px;background:transparent;border:none;
+border-bottom:2px solid transparent;color:var(--тихо);font-weight:600;border-radius:0}
+.вкладка.активная{color:var(--текст);border-bottom-color:var(--син)}
+.вкладка:hover{color:var(--текст)}
 </style>"""
 
 

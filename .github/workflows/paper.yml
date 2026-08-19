@@ -5,7 +5,8 @@ name: Бумажная торговля
 # свечей это несущественно, для минутных было бы неприемлемо.
 on:
   schedule:
-    - cron: "17 */4 * * *"     # не в :00 — в это время у GitHub пик нагрузки
+    - cron: "17 */4 * * *"     # короткие сделки: каждые 4 часа
+    - cron: "17 8 * * *"       # долгосрочный обзор: раз в сутки
   workflow_dispatch:            # кнопка ручного запуска на вкладке Actions
 
 # Нужно право записи: журнал сделок коммитится обратно в репозиторий,
@@ -47,6 +48,15 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python paper.py
+
+      - name: Долгосрочный обзор
+        # Раз в сутки, в утренний запуск. Дневная свеча меняется раз в день,
+        # чаще смотреть нечего. Это отдельная система от короткой торговли.
+        if: ${{ github.event.schedule == '17 8 * * *' || github.event_name == 'workflow_dispatch' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python long.py --tg
 
       - name: Сохранить журнал
         run: |
