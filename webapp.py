@@ -411,7 +411,25 @@ class Сервер(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 
+def задать_пароль(новый: str) -> None:
+    """Смена пароля из командной строки: python webapp.py --пароль мойпароль"""
+    if len(новый) < 6:
+        print("Пароль короче 6 знаков — так нельзя.")
+        raise SystemExit(1)
+    с = читать_секреты()
+    соль = _secrets.token_hex(16)
+    с["веб_пароль_соль"] = соль
+    с["веб_пароль_хеш"] = хеш(новый, соль)
+    with open(_путь_секретов(), "w", encoding="utf-8") as f:
+        json.dump(с, f, ensure_ascii=False, indent=2)
+    print(f"Пароль изменён на: {новый}")
+
+
 if __name__ == "__main__":
+    import sys
+    if "--пароль" in sys.argv:
+        задать_пароль(sys.argv[sys.argv.index("--пароль") + 1])
+        raise SystemExit(0)
     обеспечить_пароль()
     print(f"Кабинет запущен.  Откройте в браузере:  http://localhost:{ПОРТ}")
     print("Остановить — Ctrl+C\n")
