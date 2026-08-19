@@ -1,0 +1,58 @@
+name: Бумажная торговля
+
+# Запуск каждые 4 часа — по закрытию бара на выбранном таймфрейме.
+# Расписание в GitHub неточное: задержка 5-30 минут обычна. Для 4-часовых
+# свечей это несущественно, для минутных было бы неприемлемо.
+on:
+  schedule:
+    - cron: "17 */4 * * *"     # не в :00 — в это время у GitHub пик нагрузки
+  workflow_dispatch:            # кнопка ручного запуска на вкладке Actions
+
+# Нужно право записи: журнал сделок коммитится обратно в репозиторий,
+# иначе следующий запуск не увидит открытые позиции.
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-trading
+  cancel-in-progress: false     # не обрывать проход на середине
+
+jobs:
+  проход:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Забрать код и журнал
+        uses: actions/checkout@v4
+
+      - name: Поставить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+        # Зависимостей нет намеренно — весь движок на стандартной библиотеке,
+        # поэтому шага установки пакетов здесь нет.
+
+      - name: Проверить правила риск-менеджмента
+        # Если правила сломаны, торговать нельзя даже на бумаге.
+        run: |
+          python tests/test_rules.py
+          python tests/test_signals.py
+
+      - name: Провести сделки и найти новые сигналы
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python paper.py
+
+      - name: Сохранить журнал
+        run: |
+          git config user.name "trading-assistant"
+          git config user.email "noreply@github.com"
+          git add state/
+          if git diff --staged --quiet; then
+            echo "Изменений в журнале нет — коммит не нужен."
+          else
+            git commit -m "Журнал бумажной торговли: $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git push
+          fi

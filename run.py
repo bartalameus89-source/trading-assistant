@@ -26,6 +26,15 @@ def конфиг() -> dict:
 
 
 def секреты() -> dict:
+    """Сначала переменные окружения — так работает автозапуск в облаке,
+    где файла с секретами нет и быть не должно. Потом локальный файл."""
+    из_среды = {
+        "telegram_bot_token": os.environ.get("TELEGRAM_BOT_TOKEN"),
+        "telegram_chat_id": os.environ.get("TELEGRAM_CHAT_ID"),
+    }
+    if из_среды["telegram_bot_token"] and из_среды["telegram_chat_id"]:
+        return из_среды
+
     путь = os.path.join(БАЗА, "secrets.local.json")
     if not os.path.exists(путь):
         return {}

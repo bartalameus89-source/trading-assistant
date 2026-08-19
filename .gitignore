@@ -4,7 +4,6 @@ secrets.local.json
 .env
 
 # Локальные данные и состояние
-state/
 data_cache/
 *.db
 
