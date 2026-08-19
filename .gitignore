@@ -21,3 +21,5 @@ bt*.txt
 universe*.txt
 collect.log
 trades.json
+webapp.log
+api.json
