@@ -1,0 +1,23 @@
+# Секреты — НИКОГДА не попадают в репозиторий.
+secrets.local.json
+*.local.json
+.env
+
+# Локальные данные и состояние
+state/
+data_cache/
+*.db
+
+# Служебное
+__pycache__/
+*.pyc
+.venv/
+venv/
+cache/
+
+# Результаты прогонов — пересоздаются запуском, в репозитории не нужны
+*_result.txt
+bt*.txt
+universe*.txt
+collect.log
+trades.json
