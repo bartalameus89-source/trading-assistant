@@ -11,6 +11,7 @@ OKX не используется — с этого интернет-подкл�
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -64,10 +65,34 @@ class Свечи:
         return минут / шаг
 
 
+# Повторы при сетевой осечке. Без них одна секундная заминка теряла монету
+# целиком: кабинет показывал «монет 14» вместо 15 и не говорил, какую именно,
+# а бумажная торговля пропускала по ней сигнал и не замечала этого.
+# Задержка растёт (0.6с, 1.2с), чтобы не долбить биржу при настоящем сбое.
+ПОВТОРОВ = 3
+ПАУЗА_С = 0.6
+
+
 def _запрос(url: str) -> dict | list:
     req = urllib.request.Request(url, headers={"User-Agent": "trading-assistant/1.0"})
-    with urllib.request.urlopen(req, timeout=ТАЙМАУТ) as r:
-        return json.loads(r.read())
+    последняя: Exception | None = None
+    for попытка in range(ПОВТОРОВ):
+        try:
+            with urllib.request.urlopen(req, timeout=ТАЙМАУТ) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            # 4xx повторять бессмысленно: биржа поняла запрос и отказала.
+            # Исключение — 429 и 418: это «слишком часто», тут пауза помогает.
+            if e.code < 500 and e.code not in (429, 418):
+                raise
+            последняя = e
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError,
+                ConnectionError, OSError) as e:
+            последняя = e
+        if попытка < ПОВТОРОВ - 1:
+            time.sleep(ПАУЗА_С * (2 ** попытка))
+    raise RuntimeError(f"{ПОВТОРОВ} попыток подряд неудачны: "
+                       f"{type(последняя).__name__}: {последняя}")
 
 
 def _с_binance(актив: str, таймфрейм: str, лимит: int) -> Свечи:

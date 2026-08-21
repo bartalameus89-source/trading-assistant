@@ -27,7 +27,7 @@ import time
 import urllib.parse
 from http import HTTPStatus
 
-from engine import (breakout, data, decisions, exchange, journal, longterm,
+from engine import (breakout, data, decisions, exchange, journal, longterm, portfolio,
                     render, risk, shadow, signals)
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
@@ -175,6 +175,19 @@ _кеш_прорывы: dict = {"время": 0.0, "данные": None}
 def сводный_счёт() -> dict:
     """Что открыто и закрыто по всем трём системам сразу, включая тени."""
     итог = {"открыто": 0, "закрыто": 0, "разделы": []}
+
+    # Нагрузка на портфель: сколько денег под ударом ПО ВСЕМ системам.
+    # Считается отдельно от счёта позиций, потому что монеты ходят вместе
+    # и одновременные стопы бьют одной суммой, а не по очереди.
+    з = portfolio.занятость(конфиг())
+    макс_риск, макс_поз = portfolio.лимиты(конфиг())
+    итог["нагрузка"] = {
+        "позиций": з["всего_позиций"], "предел_позиций": макс_поз,
+        "риск_usd": round(з["риск_usd"], 2), "риск_пр": round(з["риск_пр"], 1),
+        "предел_риска_пр": макс_риск,
+        "пересечения": [f"{а.replace('USDT', '')}: {', '.join(с)}"
+                        for а, с in з["пересечения"].items()],
+    }
 
     def добавить(имя: str, открыто: int, закрыто: int, пояснение: str) -> None:
         итог["открыто"] += открыто

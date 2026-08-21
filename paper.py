@@ -20,7 +20,7 @@ import os
 import sys
 import time
 
-from engine import data, decisions, journal, render, shadow, signals
+from engine import data, decisions, journal, portfolio, render, shadow, signals
 from run import отправить_в_телеграм
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
@@ -148,6 +148,16 @@ def главное() -> int:
 
         if а.вывод != signals.СИГНАЛ:
             continue
+
+        # Портфель имеет право вето: у короткой системы свой лимит позиций,
+        # но он ничего не знает о прорывах и долгосрочных. Отсеянное здесь
+        # уже лежит в тени — сигнал не теряется, он просто не рекомендуется.
+        риск_сигнала = (а.план.риск_пр_депозита if а.план else 0.0) or 0.0
+        можно, почему = portfolio.можно_открыть(CFG, актив, риск_сигнала)
+        if not можно:
+            print(f"  {актив}: сигнал есть, но портфель не пускает — {почему}")
+            continue
+
         с = journal.добавить(а, CFG["риск"]["депозит"], часов,
                              CFG["сигналы"]["срок_жизни_сигнала_баров"],
                              порог_безубытка=CFG["риск"].get("безубыток_после_R", 0.0))

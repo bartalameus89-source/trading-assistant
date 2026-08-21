@@ -19,7 +19,7 @@ import os
 import sys
 import time
 
-from engine import data, indicators as ind, longterm
+from engine import data, indicators as ind, longterm, portfolio
 from engine.render import формат_цены
 from run import отправить_в_телеграм
 
@@ -126,6 +126,13 @@ def главное() -> int:
         # --- ищем новую ---
         в = longterm.проанализировать_долгий(свечи, CFG)
         if в.вывод != longterm.ЕСТЬ_ПОТЕНЦИАЛ:
+            continue
+
+        # У долгосрочной системы своего лимита позиций не было вообще —
+        # она могла занять все 15 монет. Теперь предел общий с остальными.
+        можно, почему = portfolio.можно_открыть(CFG, актив, риск_пр)
+        if not можно:
+            события.append(f"{актив}: потенциал есть, но портфель занят — {почему}")
             continue
 
         размер = депозит * риск_пр / 100 / (в.стоп_проц / 100)
