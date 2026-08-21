@@ -65,6 +65,15 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python long.py --tg
 
+      - name: Система прорывов
+        # Раз в сутки после закрытия дневной свечи. Отдельная система:
+        # ловит движения, которые обе прежние пропускают по своим причинам.
+        if: ${{ github.event.schedule == '17 8 * * *' || github.event_name == 'workflow_dispatch' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python breakouts.py --tg
+
       - name: Сохранить журнал
         run: |
           git config user.name "trading-assistant"

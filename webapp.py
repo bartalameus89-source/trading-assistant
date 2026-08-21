@@ -418,6 +418,10 @@ border:1px solid rgba(210,153,34,.35)}
 .карточка.демо{border-left-color:var(--жёлт)}
 .кнопка-демо{background:transparent;border-color:var(--рамка);color:var(--тихо)}
 .кнопка-демо:hover{color:var(--текст);border-color:var(--жёлт)}
+.мини{width:auto;margin:0 4px 0 0;padding:5px 12px;font-size:12px;border-radius:6px}
+.мини.серая{background:transparent;border-color:var(--рамка);color:var(--тихо)}
+.мини.серая:hover{color:var(--текст)}
+td.действия{white-space:nowrap}
 </style>"""
 
 
@@ -544,6 +548,22 @@ class Обработчик(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         путь = urllib.parse.urlparse(self.path).path
+
+        if путь == "/api/decision/action":
+            if not self._авторизован():
+                return self._ответ(b'{"ok":false}', HTTPStatus.UNAUTHORIZED,
+                                   "application/json")
+            длина = int(self.headers.get("Content-Length", 0))
+            try:
+                д = json.loads(self.rfile.read(длина).decode("utf-8-sig",
+                                                             errors="replace"))
+                ок, текст = decisions.действие(
+                    д["id"], д["action"], д.get("price"))
+                ответ = {"ok": ок, "текст": текст}
+            except Exception as e:
+                ответ = {"ok": False, "текст": f"{type(e).__name__}: {e}"}
+            return self._ответ(json.dumps(ответ, ensure_ascii=False).encode(),
+                               тип="application/json; charset=utf-8")
 
         if путь == "/api/decision":
             if not self._авторизован():
