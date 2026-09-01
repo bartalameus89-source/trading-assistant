@@ -43,6 +43,7 @@ jobs:
           python tests/test_rules.py
           python tests/test_signals.py
           python tests/test_stop_after_entry.py
+          python tests/test_journals_walk.py
 
       - name: Провести сделки и найти новые сигналы
         env:
