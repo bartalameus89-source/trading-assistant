@@ -19,7 +19,7 @@ import os
 import sys
 import time
 
-from engine import data, indicators as ind, longterm, portfolio
+from engine import data, heartbeat, indicators as ind, longterm, portfolio
 from engine.render import формат_цены
 from run import отправить_в_телеграм
 
@@ -102,7 +102,10 @@ def главное() -> int:
             # по стопу от цены, которой при ней не существовало. Смотрим
             # только бары, начавшиеся после открытия позиции.
             начало = открытая.get("бар_входа_время") or (открытая["открыта_в"] * 1000)
-            после = [i for i, t in enumerate(свечи.времена) if t > начало]
+            # Только закрытые дни — по той же причине, что и в прорывах:
+            # иначе результат зависит от того, в какой час суток запустили.
+            после = [i for i, t in enumerate(свечи.времена)
+                     if t > начало and i <= len(свечи) - 2]
             минимум_после = min((свечи.lows[i] for i in после), default=None)
 
             if минимум_после is not None and минимум_после <= открытая["стоп"]:
@@ -187,6 +190,7 @@ def главное() -> int:
     for с in события:
         print(f"  {с}")
     print(f"В журнале: открыто {ст['открыты']}, закрыто {ст['закрыто']}")
+    heartbeat.отметиться("долгосрочная", len(события))
     if ст["закрыто"]:
         print(f"Побед {ст['доля_побед']:.0f}%, итог {ст['сумма_R']:+.2f}R, "
               f"профит-фактор {ст['профит_фактор']:.2f}")

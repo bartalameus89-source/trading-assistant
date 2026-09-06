@@ -20,7 +20,8 @@ import os
 import sys
 import time
 
-from engine import data, decisions, journal, portfolio, render, shadow, signals
+from engine import (data, decisions, heartbeat, journal, portfolio, render,
+                    shadow, signals)
 from run import отправить_в_телеграм
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
@@ -209,6 +210,7 @@ def главное() -> int:
           f"· новых теневых: {новых_теней}")
     print(f"Тень: рекомендованных {св['рекомендованные']['всего']}, "
           f"отсеянных {св['отсеянные']['всего']}, закрыто {св['все']['закрыто']}")
+    heartbeat.отметиться("короткие", len(события))
     print(f"В журнале: всего {ст['всего']}, ждут входа {ст['ожидают']}, "
           f"в работе {ст['открыты']}, закрыто {ст['закрыто']}")
     if ст["закрыто"]:
