@@ -27,7 +27,8 @@ import time
 import urllib.parse
 from http import HTTPStatus
 
-from engine import (breakout, data, decisions, exchange, journal, longterm, portfolio,
+from engine import (breakout, data, decisions, exchange, journal, longterm,
+                    pnl, portfolio,
                     render, risk, shadow, signals)
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
@@ -172,6 +173,21 @@ def ожидание(плечо: float = 1.0) -> dict:
 _кеш_прорывы: dict = {"время": 0.0, "данные": None}
 
 
+def _последние_цены() -> dict[str, float]:
+    """Текущие цены по всем активам. Ошибка по одной монете не должна
+    ронять весь подсчёт — она просто оценится по своему стопу."""
+    cfg = конфиг()
+    цены: dict[str, float] = {}
+    for актив in cfg["активы"]:
+        try:
+            цены[актив] = data.загрузить(
+                актив, "1d", лимит=3,
+                источники=cfg["источник_данных"]).последняя_цена
+        except Exception:
+            continue
+    return цены
+
+
 def сводный_счёт() -> dict:
     """Что открыто и закрыто по всем трём системам сразу, включая тени."""
     итог = {"открыто": 0, "закрыто": 0, "разделы": []}
@@ -188,6 +204,13 @@ def сводный_счёт() -> dict:
         "пересечения": [f"{а.replace('USDT', '')}: {', '.join(с)}"
                         for а, с in з["пересечения"].items()],
     }
+
+    # Деньги. Раньше кабинет показывал только СЧЁТ сделок, и по нему выходило
+    # уныло: восемь закрытых, семь в минус. Все двенадцать открытых при этом
+    # стояли в плюсе, но их прибыль нигде не считалась. Для трендовой системы
+    # это не мелочь: убыточные закрываются быстро и мелко, прибыльные держатся
+    # месяц. По одним закрытым видно только убытки.
+    итог["деньги"] = pnl.подсчитать(_последние_цены())
 
     def добавить(имя: str, открыто: int, закрыто: int, пояснение: str) -> None:
         итог["открыто"] += открыто
@@ -512,6 +535,9 @@ color:var(--текст);cursor:pointer;margin:0;font-weight:500}
 .подсветка{background:rgba(68,147,248,.10)}
 td.вверх{color:var(--зел)}td.вниз{color:var(--крас)}
 .цифра.вверх{color:var(--зел)}.цифра.вниз{color:var(--крас)}
+/* Знак суммы: зелёное — заработано, красное — потеряно. Применяется
+   и к крупным цифрам, и к ячейкам таблицы, поэтому классы отдельные. */
+.плюс{color:var(--зел)}.минус{color:var(--крас)}
 .вкладки{display:flex;gap:8px;margin:26px 0 4px;border-bottom:1px solid var(--рамка)}
 .вкладка{width:auto;margin:0;padding:10px 18px;background:transparent;border:none;
 border-bottom:2px solid transparent;color:var(--тихо);font-weight:600;border-radius:0}
