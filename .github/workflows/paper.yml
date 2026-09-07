@@ -47,6 +47,7 @@ jobs:
           python tests/test_health.py
           python tests/test_portfolio_quota.py
           python tests/test_exit_rules.py
+          python tests/test_pyramid.py
 
       - name: Провести сделки и найти новые сигналы
         env:
