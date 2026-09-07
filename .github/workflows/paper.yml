@@ -45,6 +45,7 @@ jobs:
           python tests/test_stop_after_entry.py
           python tests/test_journals_walk.py
           python tests/test_health.py
+          python tests/test_portfolio_quota.py
 
       - name: Провести сделки и найти новые сигналы
         env:
