@@ -134,7 +134,92 @@ def _с_bybit(актив: str, таймфрейм: str, лимит: int) -> Св
     )
 
 
-ЗАГРУЗЧИКИ = {"binance": _с_binance, "bybit": _с_bybit}
+# --- Источники, которые НЕ блокируют США ---------------------------------
+#
+# Девятого сентября автоматика на GitHub три с половиной суток «работала»
+# впустую: и binance, и bybit отдавали отказ по географии. Серверы GitHub
+# стоят в США, и обе биржи оттуда данные не отдают:
+#     binance: HTTP 451 (Unavailable For Legal Reasons)
+#     bybit:   HTTP 403 (Forbidden)
+# Раньше проходило, значит блокировку ужесточили. Полагаться на два
+# источника с ОДНОЙ И ТОЙ ЖЕ причиной отказа было ошибкой: они выглядят
+# как запасные друг для друга, но падают вместе.
+#
+# Kraken и Coinbase — биржи с американской лицензией, они США не блокируют.
+
+_KRAKEN_ИНТЕРВАЛ = {"1m": 1, "5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440}
+
+# У Kraken свои имена: биткоин это XBT, а котировка к доллару, не к USDT.
+_KRAKEN_ИМЯ = {
+    "BTCUSDT": "XBTUSD", "ETHUSDT": "ETHUSD", "SOLUSDT": "SOLUSD",
+    "XRPUSDT": "XRPUSD", "DOGEUSDT": "XDGUSD", "ADAUSDT": "ADAUSD",
+    "LINKUSDT": "LINKUSD", "LTCUSDT": "LTCUSD", "AVAXUSDT": "AVAXUSD",
+    "UNIUSDT": "UNIUSD", "AAVEUSDT": "AAVEUSD", "NEARUSDT": "NEARUSD",
+    "SUIUSDT": "SUIUSD", "TRXUSDT": "TRXUSD",
+    # BNB на Kraken нет — это токен самой Binance. Для него остаётся Coinbase,
+    # а если и там нет, монета просто пропускается с явной ошибкой.
+}
+
+
+def _с_kraken(актив: str, таймфрейм: str, лимит: int) -> Свечи:
+    пара = _KRAKEN_ИМЯ.get(актив)
+    if not пара:
+        raise RuntimeError(f"на Kraken нет пары для {актив}")
+    интервал = _KRAKEN_ИНТЕРВАЛ.get(таймфрейм, 240)
+    url = (f"https://api.kraken.com/0/public/OHLC"
+           f"?pair={пара}&interval={интервал}")
+    raw = _запрос(url)
+    if raw.get("error"):
+        raise RuntimeError(f"Kraken вернул ошибку: {raw['error']}")
+    результат = raw.get("result", {})
+    ключ = next((k for k in результат if k != "last"), None)
+    if not ключ:
+        raise RuntimeError("Kraken вернул пустой результат")
+    строки = результат[ключ][-лимит:]
+    return Свечи(
+        актив=актив, таймфрейм=таймфрейм, источник="kraken",
+        времена=[int(k[0]) * 1000 for k in строки],
+        opens=[float(k[1]) for k in строки],
+        highs=[float(k[2]) for k in строки],
+        lows=[float(k[3]) for k in строки],
+        closes=[float(k[4]) for k in строки],
+        volumes=[float(k[6]) for k in строки],
+    )
+
+
+# Coinbase отдаёт только эти шаги. Четырёхчасового у него НЕТ — попытка
+# запросить 14400 даёт HTTP 400. Поэтому для короткой системы (4h) он
+# не годится, а для прорывов и долгосрочной (1d) годится вполне.
+_COINBASE_ГРАНУЛЯРНОСТЬ = {"1m": 60, "5m": 300, "15m": 900,
+                           "1h": 3600, "6h": 21600, "1d": 86400}
+
+
+def _с_coinbase(актив: str, таймфрейм: str, лимит: int) -> Свечи:
+    гран = _COINBASE_ГРАНУЛЯРНОСТЬ.get(таймфрейм)
+    if not гран:
+        raise RuntimeError(
+            f"Coinbase не отдаёт шаг {таймфрейм} (у него есть только "
+            f"{', '.join(_COINBASE_ГРАНУЛЯРНОСТЬ)})")
+    монета = актив[:-4] if актив.endswith("USDT") else актив
+    url = (f"https://api.exchange.coinbase.com/products/{монета}-USD/candles"
+           f"?granularity={гран}")
+    raw = _запрос(url)
+    if not isinstance(raw, list) or not raw:
+        raise RuntimeError("Coinbase вернул пустой результат")
+    # Coinbase отдаёт от новых к старым: [время, low, high, open, close, объём]
+    строки = list(reversed(raw))[-лимит:]
+    return Свечи(
+        актив=актив, таймфрейм=таймфрейм, источник="coinbase",
+        времена=[int(k[0]) * 1000 for k in строки],
+        opens=[float(k[3]) for k in строки],
+        highs=[float(k[2]) for k in строки],
+        lows=[float(k[1]) for k in строки],
+        closes=[float(k[4]) for k in строки],
+        volumes=[float(k[5]) for k in строки],
+    )
+
+ЗАГРУЗЧИКИ = {"binance": _с_binance, "bybit": _с_bybit,
+              "kraken": _с_kraken, "coinbase": _с_coinbase}
 
 
 def загрузить(актив: str, таймфрейм: str = "4h", лимит: int = 400,
