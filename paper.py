@@ -148,7 +148,7 @@ def главное() -> int:
             а = signals.проанализировать(свечи, CFG, флаги,
                                          депозит=CFG["риск"]["депозит"])
         except Exception as e:
-            print(f"  {актив}: ошибка {type(e).__name__}")
+            print(f"  {актив}: ошибка {type(e).__name__}: {e}")
             continue
 
         if а.вывод != signals.СИГНАЛ:

@@ -31,7 +31,7 @@ def обзор() -> list[longterm.ДолгийВзгляд]:
                                    источники=CFG["источник_данных"])
             взгляды.append(longterm.проанализировать_долгий(свечи, CFG))
         except Exception as e:
-            print(f"  {актив}: ошибка {type(e).__name__}")
+            print(f"  {актив}: ошибка {type(e).__name__}: {e}")
     return взгляды
 
 
