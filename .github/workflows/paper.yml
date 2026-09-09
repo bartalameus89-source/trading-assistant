@@ -48,6 +48,7 @@ jobs:
           python tests/test_portfolio_quota.py
           python tests/test_exit_rules.py
           python tests/test_pyramid.py
+          python tests/test_tgbuttons.py
 
       - name: Провести сделки и найти новые сигналы
         env:
@@ -98,6 +99,20 @@ jobs:
             python long.py --tg
           else
             echo "Обзор шлётся в утренний проход, сейчас $hour UTC."
+          fi
+
+      - name: Недельный отчёт в Telegram
+        # По воскресеньям в утренний проход. Между событиями бот молчит,
+        # и по тишине не понять, идут дела или стоят. Час берём из системного
+        # времени, а не из строки расписания: строка cron уже подводила.
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "$(date -u +%u)" = "7" ] && [ "$(date -u +%H)" -ge 8 ]              && [ "$(date -u +%H)" -lt 12 ]; then
+            python weekly.py --tg
+          else
+            echo "Недельный отчёт уходит воскресным утром."
           fi
 
       - name: Снимок счёта за сегодня

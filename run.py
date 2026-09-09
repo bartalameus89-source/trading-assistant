@@ -42,17 +42,23 @@ def секреты() -> dict:
         return json.load(f)
 
 
-def отправить_в_телеграм(текст: str) -> bool:
+def отправить_в_телеграм(текст: str, кнопки: str | None = None) -> bool:
+    """`кнопки` — готовый JSON inline-клавиатуры. Нужны, чтобы решение
+    «взял или пропустил» можно было принять прямо в сообщении: ради одной
+    кнопки открывать кабинет никто не станет, и журнал решений оставался пустым."""
     s = секреты()
     токен, чат = s.get("telegram_bot_token"), s.get("telegram_chat_id")
     if not токен or not чат:
         print("  (Telegram не настроен — запустите python tg_setup.py)")
         return False
     url = f"https://api.telegram.org/bot{токен}/sendMessage"
-    тело = urllib.parse.urlencode({
+    поля = {
         "chat_id": чат, "text": текст, "parse_mode": "HTML",
         "disable_web_page_preview": "true",
-    }).encode()
+    }
+    if кнопки:
+        поля["reply_markup"] = кнопки
+    тело = urllib.parse.urlencode(поля).encode()
     try:
         with urllib.request.urlopen(urllib.request.Request(url, data=тело), timeout=20) as r:
             return json.loads(r.read()).get("ok", False)
