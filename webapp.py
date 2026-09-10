@@ -21,6 +21,7 @@ import http.server
 import json
 import os
 import secrets as _secrets
+import socket
 import socketserver
 import threading
 import time
@@ -868,8 +869,20 @@ class Обработчик(http.server.BaseHTTPRequestHandler):
 
 
 class Сервер(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
+    # На Linux SO_REUSEADDR безобиден: разрешает сразу перезапуститься после
+    # закрытия. На Windows тот же флаг значит другое — «пустить ВТОРОЙ сервер
+    # на занятый порт», и оба молча слушают одновременно. Так на 8765 однажды
+    # оказалось три кабинета сразу. Вход хранится в памяти своего процесса,
+    # поэтому владелец входил в один, следующий запрос попадал в другой —
+    # и его снова выкидывало на пароль. Здесь порт занимается исключительно:
+    # второй запуск получает ошибку и честно говорит, что кабинет уже открыт.
+    allow_reuse_address = os.name != "nt"
     daemon_threads = True
+
+    def server_bind(self):
+        if os.name == "nt":
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 def задать_пароль(новый: str) -> None:
@@ -892,9 +905,18 @@ if __name__ == "__main__":
         задать_пароль(sys.argv[sys.argv.index("--пароль") + 1])
         raise SystemExit(0)
     обеспечить_пароль()
+    try:
+        сервер = Сервер(("127.0.0.1", ПОРТ), Обработчик)
+    except OSError:
+        # Порт занят — почти всегда это уже запущенный кабинет. Второй
+        # такой же сервер не нужен: он только путает вход.
+        print(f"Кабинет уже запущен. Откройте в браузере:  http://localhost:{ПОРТ}")
+        print("Если страница не открывается, закройте другие окна кабинета "
+              "и запустите снова.")
+        raise SystemExit(1)
     print(f"Кабинет запущен.  Откройте в браузере:  http://localhost:{ПОРТ}")
     print("Остановить — Ctrl+C\n")
-    with Сервер(("127.0.0.1", ПОРТ), Обработчик) as сервер:
+    with сервер:
         try:
             сервер.serve_forever()
         except KeyboardInterrupt:
