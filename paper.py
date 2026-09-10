@@ -20,7 +20,8 @@ import os
 import sys
 import time
 
-from engine import (data, decisions, heartbeat, journal, portfolio, render,
+from engine import (data, decisions, heartbeat, integrity, journal, portfolio,
+                    render,
                     shadow, signals, tgbuttons)
 from run import отправить_в_телеграм
 
@@ -97,6 +98,23 @@ def сигнал_жизни(ст: dict, событий: int, новых: int) ->
 
 
 def главное() -> int:
+    # Писать в сломанный журнал — значит добить его. Проверяем ДО работы.
+    # Раньше повреждённый файл был неотличим от пустого: система молча
+    # начинала с чистого листа и теряла всю историю сделок.
+    try:
+        integrity.убедиться()
+    except integrity.Повреждён as e:
+        print(e)
+        return 1
+
+    # Отметить, под какими правилами идёт этот проход. Запись появляется
+    # только при СМЕНЕ настроек — иначе журнал версий за месяц раздуется
+    # до тысяч одинаковых строк.
+    версия = settings_log.отметить()
+    if версия["изменения"] != ["первая записанная версия"] and (
+            time.time() - версия["когда"] < 60):
+        print("Настройки изменились: " + "; ".join(версия["изменения"][:3]))
+
     if "--отчёт" in sys.argv:
         print(сводка_текстом(journal.статистика()).replace("<b>", "")
               .replace("</b>", "").replace("<i>", "").replace("</i>", ""))

@@ -18,7 +18,7 @@ import json
 import os
 import time
 
-from . import bars, exit_rules
+from . import bars, exit_rules, settings_log
 from dataclasses import asdict, dataclass, field
 
 БАЗА = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -77,6 +77,7 @@ class Решение:
     цена_входа: float | None = None
     вошли_в: float | None = None
     стоп_начальный: float | None = None   # для расчёта риска
+    настройки: str = ""            # отпечаток версии правил, см. engine/settings_log.py
     # Частичная фиксация: часть прибыли берётся на цели, остаток едет
     # дальше с плотным стопом. Подробности и замеры — в engine/exit_rules.py.
     atr: float = 0.0
@@ -183,6 +184,7 @@ def записать(данные: dict) -> Решение | None:
         направление=данные["направление"], вход=float(данные["вход"]),
         стоп=float(данные["стоп"]), стоп_начальный=float(данные["стоп"]),
         atr=float(данные.get("atr") or 0.0),
+        настройки=settings_log.отпечаток(),
         цель=float(данные["цель"]),
         тип_ордера=данные.get("тип_ордера", "Limit"),
         уверенность=данные.get("уверенность", ""), режим=данные.get("режим", ""),

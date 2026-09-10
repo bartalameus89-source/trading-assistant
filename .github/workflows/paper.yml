@@ -49,6 +49,7 @@ jobs:
           python tests/test_exit_rules.py
           python tests/test_pyramid.py
           python tests/test_tgbuttons.py
+          python tests/test_integrity.py
 
       - name: Провести сделки и найти новые сигналы
         env:
@@ -101,6 +102,18 @@ jobs:
             echo "Обзор шлётся в утренний проход, сейчас $hour UTC."
           fi
 
+      - name: Пересобрать кеш сигналов раз в месяц
+        # Кеш — основа ВСЕХ замеров. Он собран один раз в августе, и каждая
+        # проверка гипотезы идёт по нему: чем он старее, тем больше свежих
+        # данных мы не видим. Пересобираем первого числа, в утренний проход.
+        # Гейт по системному времени, а не по строке cron — она уже подводила.
+        run: |
+          if [ "$(date -u +%d)" = "01" ] && [ "$(date -u +%H)" -ge 8 ]              && [ "$(date -u +%H)" -lt 12 ]; then
+            python collect.py
+          else
+            echo "Кеш пересобирается первого числа."
+          fi
+
       - name: Недельный отчёт в Telegram
         # По воскресеньям в утренний проход. Между событиями бот молчит,
         # и по тишине не понять, идут дела или стоят. Час берём из системного
@@ -136,7 +149,7 @@ jobs:
         run: |
           git config user.name "trading-assistant"
           git config user.email "noreply@github.com"
-          git add state/
+          git add state/ cache/
           if git diff --staged --quiet; then
             echo "Изменений в журнале нет — коммит не нужен."
           else
