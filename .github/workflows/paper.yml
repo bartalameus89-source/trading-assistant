@@ -51,6 +51,7 @@ jobs:
           python tests/test_tgbuttons.py
           python tests/test_integrity.py
           python tests/test_names.py
+          python tests/test_benchmark.py
 
       - name: Провести сделки и найти новые сигналы
         env:
