@@ -29,3 +29,6 @@ trades.json
 webapp.log
 api.json
 export/
+
+# Локальные настройки Claude Code (запуск песочницы кабинета)
+.claude/

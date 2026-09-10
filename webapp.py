@@ -29,7 +29,7 @@ from http import HTTPStatus
 
 from engine import (breakout, data, decisions, equity, exchange, journal, longterm,
                     pnl, portfolio,
-                    render, risk, shadow, signals)
+                    render, risk, shadow, signals, trades)
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
 ПОРТ = 8765
@@ -642,6 +642,27 @@ span.вверх{color:var(--зел)}span.вниз{color:var(--крас)}
 padding:10px 12px;border-radius:7px;font-size:13px;margin-bottom:12px;
 border:1px solid rgba(210,153,34,.35)}
 .карточка.демо{border-left-color:var(--жёлт)}
+
+/* Итог по всем сделкам — единственное место, где написано, сколько
+   мы заработали. Крупнее остального намеренно: это главный ответ. */
+.итог-всего{border-color:rgba(88,140,255,.4)}
+.итог-строка{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-end;
+margin-top:10px}
+.итог-строка .цифра{font-size:20px}
+/* Специфичность выше и правило НИЖЕ соседнего: иначе главное число
+   выходило того же размера, что остальные, и иерархии не возникало.
+   В коде это выглядело правильно — видно только на странице. */
+.итог-строка .итог-главное .цифра{font-size:34px;line-height:1.15}
+.итог-главное{min-width:200px}
+.разделитель{width:1px;align-self:stretch;background:var(--рамка);margin:2px 0}
+
+/* Пока данные едут, блок должен выглядеть занятым, а не пустым:
+   пустая карточка неотличима от «сделок нет», и первое открытие
+   кабинета читалось как «ничего не работает». */
+.скелет{background:linear-gradient(90deg,var(--рамка) 25%,
+rgba(255,255,255,.06) 50%,var(--рамка) 75%);
+background-size:400% 100%;border-radius:7px;animation:мерцание 1.4s infinite}
+@keyframes мерцание{0%{background-position:100% 0}100%{background-position:0 0}}
 .кнопка-демо{background:transparent;border-color:var(--рамка);color:var(--тихо)}
 .кнопка-демо:hover{color:var(--текст);border-color:var(--жёлт)}
 .мини{width:auto;margin:0 4px 0 0;padding:5px 12px;font-size:12px;border-radius:6px}
@@ -728,6 +749,25 @@ class Обработчик(http.server.BaseHTTPRequestHandler):
 
         if путь.path == "/journal":
             return self._ответ(страница_журнала())
+
+        if путь.path == "/api/trades":
+            # Все сделки всех систем. Раньше такого списка не было вовсе:
+            # «Мои сделки» показывали только личные решения владельца,
+            # их было одно, и раздел выглядел пустым при пятидесяти сделках.
+            q = urllib.parse.parse_qs(путь.query)
+            от = float(q.get("from", ["0"])[0])
+            до = float(q.get("to", ["99999999999"])[0])
+            все_сделки = trades.все(_последние_цены())
+            в_окне = [с for с in все_сделки
+                      if от <= (с["закрыта"] or с["открыта"] or 0) <= до]
+            тело = json.dumps({
+                "сделки": в_окне,
+                "свод": trades.свод(в_окне),
+                "свод_рекомендаций": trades.свод(
+                    [с for с in в_окне if с["ветка"] == "рекомендация"]),
+                "всего_за_всё_время": len(все_сделки),
+            }, ensure_ascii=False, default=str).encode()
+            return self._ответ(тело, тип="application/json; charset=utf-8")
 
         if путь.path == "/api/decisions":
             q = urllib.parse.parse_qs(путь.query)
