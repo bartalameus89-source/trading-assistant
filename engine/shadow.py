@@ -25,7 +25,7 @@ import os
 import time
 from dataclasses import asdict, dataclass, field
 
-from . import bars, exit_rules
+from . import bars, exit_rules, settings_log
 
 БАЗА = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ПАПКА = os.path.join(БАЗА, "state")

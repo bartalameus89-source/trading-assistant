@@ -19,7 +19,7 @@ import json
 import os
 import time
 
-from . import bars, exit_rules
+from . import bars, exit_rules, settings_log
 from dataclasses import asdict, dataclass, field
 
 БАЗА = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

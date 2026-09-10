@@ -21,8 +21,7 @@ import sys
 import time
 
 from engine import (data, decisions, heartbeat, integrity, journal, portfolio,
-                    render,
-                    shadow, signals, tgbuttons)
+                    render, settings_log, shadow, signals, tgbuttons)
 from run import отправить_в_телеграм
 
 БАЗА = os.path.dirname(os.path.abspath(__file__))
