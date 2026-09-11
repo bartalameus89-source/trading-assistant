@@ -53,6 +53,7 @@ jobs:
           python tests/test_names.py
           python tests/test_benchmark.py
           python tests/test_trades.py
+          python tests/test_portsim.py
 
       - name: Провести сделки и найти новые сигналы
         env:

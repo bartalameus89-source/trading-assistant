@@ -32,3 +32,5 @@ export/
 
 # Локальные настройки Claude Code (запуск песочницы кабинета)
 .claude/
+# След отклонённого опыта (ОТКЛОНЕНО.md), пересобирается candidates_short.py
+trades_candidates.json
