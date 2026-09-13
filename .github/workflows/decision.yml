@@ -1,0 +1,62 @@
+name: Решение из Telegram
+
+# Бот на компьютере владельца принимает нажатие «взял / пропустил» сразу
+# и запускает этот workflow, чтобы решение попало в журнал за минуты,
+# а не при следующем проходе через четыре часа. Подробности — decide.py.
+on:
+  workflow_dispatch:
+    inputs:
+      payload:
+        description: "Нажатие кнопки в JSON"
+        required: true
+
+permissions:
+  contents: write
+
+# Та же очередь, что у основных проходов: журнал пишет один запуск за раз,
+# иначе два коммита в state/ столкнутся.
+concurrency:
+  group: paper-trading
+  cancel-in-progress: false
+
+jobs:
+  # Идентификатор задания и имена переменных — только латиница.
+  decision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Забрать код и журнал
+        uses: actions/checkout@v4
+
+      - name: Поставить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Записать решение
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Входные данные — только через переменную окружения, не в текст
+          # команды: иначе содержимое кнопки могло бы стать частью скрипта.
+          TG_PAYLOAD: ${{ github.event.inputs.payload }}
+        run: python decide.py
+
+      - name: Сохранить журнал
+        run: |
+          git config user.name "trading-assistant"
+          git config user.email "noreply@github.com"
+          git add state/
+          if git diff --staged --quiet; then
+            echo "Изменений в журнале нет."
+            exit 0
+          fi
+          git commit -m "Решение из Telegram: $(date -u '+%Y-%m-%d %H:%M') UTC"
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "Журнал сохранён с попытки $attempt."
+              exit 0
+            fi
+            git pull --rebase --autostash || exit 1
+          done
+          echo "Журнал сохранить не удалось."
+          exit 1

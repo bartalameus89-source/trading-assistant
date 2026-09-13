@@ -34,3 +34,5 @@ export/
 .claude/
 # След отклонённого опыта (ОТКЛОНЕНО.md), пересобирается candidates_short.py
 trades_candidates.json
+# Свежие журналы, которые бот скачивает с GitHub (engine/remote.py)
+state_remote/
