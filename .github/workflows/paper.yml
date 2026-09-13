@@ -55,6 +55,7 @@ jobs:
           python tests/test_trades.py
           python tests/test_portsim.py
           python tests/test_volzones.py
+          python tests/test_variants.py
 
       - name: Провести сделки и найти новые сигналы
         env:

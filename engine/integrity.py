@@ -36,6 +36,7 @@ import time
     "paper.json": ("сделки", True),
     "paper_long.json": ("позиции", True),
     "shadow.json": ("сделки", True),
+    "variants.json": ("сделки", True),
     "decisions.json": ("решения", True),
     "equity.json": ("дни", True),
     "heartbeat.json": (None, True),
