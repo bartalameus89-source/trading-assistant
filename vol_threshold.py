@@ -35,6 +35,8 @@ from engine import data, portsim, signals
 БАЗА = os.path.dirname(os.path.abspath(__file__))
 CFG = json.load(open(os.path.join(БАЗА, "config.json"), encoding="utf-8"))
 ПОРОГИ = [80.0, 85.0, 88.0, 92.0, 95.0, 101.0]      # 101 — фильтра нет
+if len(sys.argv) > 1:                                 # python vol_threshold.py 80 90
+    ПОРОГИ = [float(x) for x in sys.argv[1:]]
 КЛЮЧ = "bbw_высокая_волатильность_перцентиль"
 ПАПКА = os.path.join(БАЗА, "export", "vol_threshold")
 
