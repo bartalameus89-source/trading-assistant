@@ -38,7 +38,7 @@ class Свечи:
     актив: str
     таймфрейм: str
     источник: str
-    времена: list[int]          #时间 открытия бара, миллисекунды UTC
+    времена: list[int]          # время открытия бара, миллисекунды UTC
     opens: list[float]
     highs: list[float]
     lows: list[float]
